@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+// ⚡ เพิ่ม getSession เข้ามา
+import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -16,7 +17,6 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    // เรียกใช้ signIn ของ NextAuth
     const result = await signIn("credentials", {
       redirect: false,
       email,
@@ -28,7 +28,14 @@ export default function LoginPage() {
       setLoading(false);
     } else {
       toast.success("เข้าสู่ระบบสำเร็จ!");
-      router.push("/booking"); // ล็อกอินสำเร็จ เด้งไปหน้าจองล็อก
+      
+      // ⚡ เช็ก Session เพื่อแยกว่าใครคือ Admin หรือ User
+      const session = await getSession();
+      if ((session?.user as any)?.role === "admin") {
+        router.push("/admin"); // ถ้าเป็นแอดมิน ไปหน้า Dashboard
+      } else {
+        router.push("/booking"); // ถ้าเป็นผู้ค้า ไปหน้าจองล็อก
+      }
     }
   };
 
