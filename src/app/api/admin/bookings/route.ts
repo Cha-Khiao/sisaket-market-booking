@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import Booking from '@/models/Booking';
 import Setting from '@/models/Setting';
+import User from '@/models/User'; // ⚡ เพิ่มการดึงโมเดล User
 
 export const dynamic = 'force-dynamic';
 
@@ -9,25 +10,42 @@ export async function GET(req: Request) {
   try {
     await connectToDatabase();
     
-    // ดึงค่า URL Parameter ว่าเป็น '?type=current' หรือไม่
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type');
 
     let filter: any = {};
     
-    // ⚡ ถ้าระบุว่าเอาเฉพาะ "รอบปัจจุบัน"
     if (type === 'current') {
       const setting = await Setting.findOne({ key: 'system' });
-      // ให้หาบิลที่ถูกสร้างขึ้น "หลังจาก" เวลาที่กดปุ่มล้างกระดานล่าสุด
       if (setting && setting.lastResetTime) {
         filter = { createdAt: { $gte: new Date(setting.lastResetTime) } };
       }
     }
 
-    // ดึงข้อมูลตาม Filter ที่ตั้งไว้ (ถ้า type=current จะได้แค่ของรอบนี้, ถ้าไม่มี type จะได้ทั้งหมด)
-    const bookings = await Booking.find(filter).sort({ createdAt: -1 });
+    // 1. ดึงข้อมูลการจองทั้งหมด
+    const bookings = await Booking.find(filter).sort({ createdAt: -1 }).lean();
     
-    return NextResponse.json({ success: true, data: bookings });
+    // 2. ดึงข้อมูลชื่อและเบอร์ของลูกค้าจากตาราง User
+    const userIds = [...new Set(bookings.map(b => b.userId))];
+    const users = await User.find({ _id: { $in: userIds } }).lean();
+    
+    // 3. สร้าง Map เพื่อประกบข้อมูลให้หากันเจอง่ายๆ
+    const userMap: Record<string, any> = {};
+    users.forEach((u: any) => {
+      userMap[u._id.toString()] = { name: u.name, phone: u.phoneNumber || '-' };
+    });
+
+    // 4. เอาชื่อและเบอร์ใส่เข้าไปในใบเสร็จ
+    const formattedBookings = bookings.map((b: any) => {
+      const uId = b.userId?.toString();
+      return {
+        ...b,
+        customerName: userMap[uId]?.name || 'ไม่พบชื่อ (ผู้ใช้อาจถูกลบ)',
+        customerPhone: userMap[uId]?.phone || '-'
+      };
+    });
+    
+    return NextResponse.json({ success: true, data: formattedBookings });
   } catch (error: any) {
     console.error("API Error:", error);
     return NextResponse.json({ success: false, message: 'Server Error' }, { status: 500 });
