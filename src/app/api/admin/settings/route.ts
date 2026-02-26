@@ -1,60 +1,42 @@
-import { NextResponse } from 'next/server';
-import connectToDatabase from '@/lib/mongodb';
-import Setting from '@/models/Setting';
-import Stall from '@/models/Stall';
-
-export const dynamic = 'force-dynamic';
-
-export async function GET() {
-  try {
-    await connectToDatabase();
-    let setting = await Setting.findOne({ key: 'system' });
-    if (!setting) {
-      setting = await Setting.create({ key: 'system', isOpen: true, lastResetTime: new Date(0) });
-    }
-    return NextResponse.json({ success: true, data: setting });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: 'Server Error: ' + error.message }, { status: 500 });
-  }
-}
+import { NextResponse } from "next/server";
+import connectToDatabase from "@/lib/mongodb";
+import Stall from "@/models/Stall";
+import Booking from "@/models/Booking";
 
 export async function POST(req: Request) {
   try {
     await connectToDatabase();
-    const { action, isOpen, openTime, closeTime } = await req.json();
     
-    let setting = await Setting.findOne({ key: 'system' });
-    if (!setting) setting = await Setting.create({ key: 'system' });
+    // เปลี่ยนมารับ bookingId เพื่อให้รู้ว่าลูกค้าจองวันไหนบ้าง
+    const { bookingId, stallId, action } = await req.json();
 
-    // 1. อัปเดตเวลาเปิด-ปิด
-    if (action === 'update_timer') {
-      setting.isOpen = isOpen;
-      
-      const newOpenTime = openTime ? new Date(openTime) : null;
-      
-      // ⚡ LOGIC สำคัญ: ถ้าแอดมินเปลี่ยน "เวลาเปิดระบบใหม่" ให้ล้างความจำการรีเซ็ต
-      // เพื่อให้ระบบรู้ว่า "ต้องล้างกระดานนะเมื่อถึงเวลานี้"
-      if (newOpenTime && (!setting.openTime || newOpenTime.getTime() !== setting.openTime.getTime())) {
-         setting.lastResetTime = new Date(0); // ย้อนเวลาไปปี 1970 เพื่อบังคับให้ล้างกระดานเมื่อถึงเวลา
-      }
+    const booking = await Booking.findOne({ bookingId });
+    if (!booking) return NextResponse.json({ success: false, message: "ไม่พบข้อมูลใบเสร็จ" }, { status: 404 });
 
-      setting.openTime = newOpenTime;
-      setting.closeTime = closeTime ? new Date(closeTime) : null;
-      await setting.save();
-      
-      return NextResponse.json({ success: true, message: 'บันทึกเวลาสำเร็จ ระบบจะล้างกระดานอัตโนมัติเมื่อถึงเวลาเปิด' });
+    let stallUpdateFields: any = {};
+
+    if (action === "approve") {
+      booking.status = "approved";
+      // เปลี่ยนเฉพาะวันที่ลูกค้าจองให้เป็น booked
+      booking.bookingDays.forEach((day: string) => { stallUpdateFields[day] = "booked"; });
+    } else if (action === "reset") {
+      booking.status = "rejected";
+      // คืนสถานะเฉพาะวันที่ลูกค้าจองให้กลับเป็น available
+      booking.bookingDays.forEach((day: string) => { stallUpdateFields[day] = "available"; });
     }
 
-    // 2. ล้างกระดาน (ปุ่มฉุกเฉิน Manual)
-    if (action === 'reset_board') {
-      await Stall.updateMany({}, { $set: { saturday: 'available', sunday: 'available' } });
-      setting.lastResetTime = new Date();
-      await setting.save();
-      return NextResponse.json({ success: true, message: 'ล้างกระดานเริ่มต้นรอบใหม่สำเร็จ!' });
+    await booking.save();
+    
+    if (Object.keys(stallUpdateFields).length > 0) {
+      await Stall.findOneAndUpdate({ stallId }, { $set: stallUpdateFields });
     }
 
-    return NextResponse.json({ success: false, message: 'คำสั่งไม่ถูกต้อง' }, { status: 400 });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: 'Server Error: ' + error.message }, { status: 500 });
+    return NextResponse.json({ 
+      success: true, 
+      message: action === "approve" ? "อนุมัติสลิปและล็อกพื้นที่ถาวรแล้ว" : "ยกเลิกสลิปและคืนพื้นที่สำเร็จ" 
+    });
+
+  } catch (error) {
+    return NextResponse.json({ success: false, message: "เกิดข้อผิดพลาดในระบบแอดมิน" }, { status: 500 });
   }
 }
