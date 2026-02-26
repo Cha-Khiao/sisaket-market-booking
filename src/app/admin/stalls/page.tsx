@@ -3,229 +3,199 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-interface Stall {
-  _id: string;
-  stallId: string;
-  zone: string;
-  price: number;
-  saturday: string;
-  sunday: string;
-}
-
-export default function AdminStallsPage() {
-  const [stalls, setStalls] = useState<Stall[]>([]);
+export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingStall, setEditingStall] = useState<Stall | null>(null);
-  const [formData, setFormData] = useState({ stallId: "", zone: "โซนทั่วไป", price: 100 });
+  const [isOpen, setIsOpen] = useState(true);
+  const [openTime, setOpenTime] = useState("");
+  const [closeTime, setCloseTime] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [countdownText, setCountdownText] = useState("");
 
-  const fetchStalls = async () => {
-    try {
-      const res = await fetch("/api/stalls");
-      const result = await res.json();
-      if (result.success) setStalls(result.data);
-    } catch (error) {
-      toast.error("ดึงข้อมูลล้มเหลว");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authText, setAuthText] = useState("");
+  
+  // State สำหรับปุ่มล้างกระดานฉุกเฉิน
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetAuthText, setResetAuthText] = useState("");
 
   useEffect(() => {
-    fetchStalls();
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch("/api/admin/settings");
+        const result = await res.json();
+        if (result.success && result.data) {
+          setIsOpen(result.data.isOpen);
+          if (result.data.openTime) setOpenTime(new Date(result.data.openTime).toISOString().slice(0, 16));
+          if (result.data.closeTime) setCloseTime(new Date(result.data.closeTime).toISOString().slice(0, 16));
+        }
+      } catch (error) {
+        toast.error("ดึงข้อมูลการตั้งค่าล้มเหลว");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
   }, []);
 
-  const totalPages = Math.max(1, Math.ceil(stalls.length / itemsPerPage));
-  const currentData = stalls.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (!openTime || !closeTime) {
+        setCountdownText("ยังไม่ได้กำหนดเวลา");
+        return;
+      }
+      const now = new Date().getTime();
+      const open = new Date(openTime).getTime();
+      const close = new Date(closeTime).getTime();
 
-  const openAddModal = () => {
-    setEditingStall(null);
-    setFormData({ stallId: "", zone: "โซนทั่วไป", price: 100 });
-    setModalOpen(true);
-  };
-
-  const openEditModal = (stall: Stall) => {
-    setEditingStall(stall);
-    setFormData({ stallId: stall.stallId, zone: stall.zone, price: stall.price });
-    setModalOpen(true);
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.stallId || !formData.zone || formData.price <= 0) return toast.warning("กรุณากรอกข้อมูลให้ครบและถูกต้อง");
-    
-    setIsProcessing(true);
-    const action = editingStall ? "update" : "create";
-    const payload = { action, ...formData, id: editingStall?._id };
-
-    try {
-      const res = await fetch("/api/admin/stalls", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      
-      if (data.success) {
-        toast.success(data.message);
-        setModalOpen(false);
-        fetchStalls();
+      if (now < open) {
+        const diff = open - now;
+        setCountdownText(`ระบบจะล้างกระดานและเปิดรับจองในอีก ${formatTimeDiff(diff)}`);
+      } else if (now >= open && now <= close) {
+        const diff = close - now;
+        setCountdownText(`ระบบเปิดอยู่ จะปิดในอีก ${formatTimeDiff(diff)}`);
       } else {
-        toast.error(data.message);
+        setCountdownText("หมดเวลารับจองแล้ว (ระบบปิดอัตโนมัติ)");
       }
-    } catch (error) {
-      toast.error("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
-    } finally {
-      setIsProcessing(false);
-    }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [openTime, closeTime]);
+
+  const formatTimeDiff = (ms: number) => {
+    const d = Math.floor(ms / (1000 * 60 * 60 * 24));
+    const h = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    const s = Math.floor((ms % (1000 * 60)) / 1000);
+    return `${d > 0 ? `${d} วัน ` : ''}${h} ชม. ${m} นาที ${s} วินาที`;
   };
 
-  const handleDelete = async () => {
-    if (!deleteConfirm) return;
+  const handleSaveTimer = async () => {
     setIsProcessing(true);
     try {
-      const res = await fetch("/api/admin/stalls", {
+      const res = await fetch("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", id: deleteConfirm }),
+        body: JSON.stringify({ action: "update_timer", isOpen, openTime, closeTime }),
       });
       const data = await res.json();
       if (data.success) {
         toast.success(data.message);
-        setDeleteConfirm(null);
-        fetchStalls();
-      }
+        setShowAuthModal(false); 
+        setAuthText(""); 
+      } else toast.error(data.message);
     } catch (error) {
-      toast.error("ลบล้มเหลว");
+      toast.error("เกิดข้อผิดพลาด");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // ⚡ ฟังก์ชันสำหรับแปลงสถานะเป็นป้ายสี
-  const StatusBadge = ({ status }: { status: string }) => {
-    if (status === "available") return <span className="px-2.5 py-1 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 font-bold text-xs rounded-lg border border-emerald-100 dark:border-emerald-800">ว่าง</span>;
-    if (status === "pending") return <span className="px-2.5 py-1 bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400 font-bold text-xs rounded-lg border border-yellow-100 dark:border-yellow-800">รอชำระ</span>;
-    return <span className="px-2.5 py-1 bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 font-bold text-xs rounded-lg border border-gray-200 dark:border-gray-700">จองแล้ว</span>;
+  const handleManualReset = async () => {
+    setIsProcessing(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset_board" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message);
+        setShowResetModal(false); 
+        setResetAuthText(""); 
+      } else toast.error(data.message);
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาด");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  if (loading) return <div className="p-10 text-center font-bold dark:text-white animate-pulse">กำลังโหลดข้อมูล...</div>;
+  if (loading) return <div className="p-10 text-center font-bold">กำลังโหลดการตั้งค่า...</div>;
 
   return (
-    <div className="max-w-6xl mx-auto pb-10 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight">🗺️ จัดการผังตลาด</h1>
-          <p className="text-gray-500 mt-2 font-medium">จัดการพื้นที่ และดูสถานะความว่างของล็อก</p>
+    <div className="max-w-4xl mx-auto pb-10 animate-in fade-in duration-500">
+      <div className="mb-8">
+        <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight">⚙️ ตั้งค่าระบบจองพื้นที่</h1>
+        <p className="text-gray-500 mt-2 font-medium">จัดการเวลาเปิด-ปิดตลาด (ระบบจะล้างกระดานอัตโนมัติเมื่อถึงเวลาเปิดรอบใหม่)</p>
+      </div>
+
+      {/* 1. ส่วนตั้งเวลา (ตั้งเวลาเสร็จ รอเวลาเดิน มันจะล้างเอง) */}
+      <div className="bg-white dark:bg-gray-900 rounded-[2rem] shadow-sm border border-gray-100 dark:border-gray-800 p-8 mb-8 relative overflow-hidden">
+        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/50 p-6 rounded-2xl mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
+           <div>
+             <p className="text-blue-800 dark:text-blue-400 font-bold mb-1">สถานะเวลาปัจจุบัน</p>
+             <p className="text-lg md:text-xl font-mono font-black text-blue-600 dark:text-blue-500">{countdownText}</p>
+           </div>
+           <div className="text-5xl animate-pulse">⏳</div>
         </div>
-        <button onClick={openAddModal} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95 flex items-center gap-2">
-          <span className="text-xl">+</span> สร้างล็อกใหม่
+
+        <div className="flex items-center justify-between mb-6 border-b border-gray-100 dark:border-gray-800 pb-6">
+          <div>
+            <h2 className="text-xl font-bold dark:text-white">เปิด/ปิด ระบบแมนนวล (Override)</h2>
+            <p className="text-sm text-gray-500 mt-1">ใช้ปิดระบบทันที โดยไม่สนเวลาที่ตั้งไว้</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" className="sr-only peer" checked={isOpen} onChange={(e) => setIsOpen(e.target.checked)} />
+            <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-500"></div>
+          </label>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">เวลาเปิดรับจอง (Auto-Reset)</label>
+            <input type="datetime-local" value={openTime} onChange={(e) => setOpenTime(e.target.value)} className="w-full p-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer" />
+            <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-2 font-bold">✅ เมื่อถึงเวลานี้ ระบบจะล้างกระดานให้อัตโนมัติ</p>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">เวลาปิดรับจอง</label>
+            <input type="datetime-local" value={closeTime} onChange={(e) => setCloseTime(e.target.value)} className="w-full p-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer" />
+          </div>
+        </div>
+
+        <button onClick={() => setShowAuthModal(true)} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black text-lg rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95 flex justify-center items-center gap-2">
+          <span>🔒</span> ยืนยันเพื่อบันทึกการตั้งค่าเวลา
         </button>
       </div>
 
-      <div className="bg-white dark:bg-gray-900 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 dark:border-gray-800 overflow-hidden">
-        
-        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20">
-          <p className="font-bold text-gray-700 dark:text-gray-300">พื้นที่ทั้งหมด <span className="text-blue-600">{stalls.length}</span> ล็อก</p>
-          <div className="flex items-center gap-3">
-             <span className="text-sm font-bold text-gray-500">แสดงหน้าละ:</span>
-             <select 
-               value={itemsPerPage} 
-               onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-               className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
-             >
-               <option value={10}>10</option>
-               <option value={20}>20</option>
-               <option value={50}>50</option>
-             </select>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-white dark:bg-gray-900 text-gray-400 dark:text-gray-500 text-xs uppercase tracking-wider">
-                <th className="p-5 border-b dark:border-gray-800 font-bold">รหัสล็อก</th>
-                <th className="p-5 border-b dark:border-gray-800 font-bold">ชื่อโซน / ราคา</th>
-                <th className="p-5 border-b dark:border-gray-800 font-bold text-center">วันเสาร์</th>
-                <th className="p-5 border-b dark:border-gray-800 font-bold text-center">วันอาทิตย์</th>
-                <th className="p-5 border-b dark:border-gray-800 font-bold text-right pr-6">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800/50">
-              {currentData.length === 0 ? (
-                <tr><td colSpan={5} className="p-16 text-center text-gray-400 font-bold">ยังไม่มีข้อมูลล็อกพื้นที่</td></tr>
-              ) : (
-                currentData.map((stall) => (
-                  <tr key={stall._id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors group">
-                    <td className="p-5 font-black text-gray-800 dark:text-white text-lg">{stall.stallId}</td>
-                    <td className="p-5">
-                      <p className={`px-2 py-0.5 rounded-md text-xs font-bold inline-block border mb-1 ${stall.zone.includes("อาหาร") ? "bg-rose-50 border-rose-100 text-rose-600 dark:bg-rose-900/30 dark:border-rose-900 dark:text-rose-400" : stall.zone.includes("เสื้อผ้า") ? "bg-blue-50 border-blue-100 text-blue-600 dark:bg-blue-900/30 dark:border-blue-900 dark:text-blue-400" : "bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:border-emerald-900 dark:text-emerald-400"}`}>
-                        {stall.zone}
-                      </p>
-                      <p className="text-gray-500 dark:text-gray-400 font-mono text-sm">฿{stall.price}</p>
-                    </td>
-                    <td className="p-5 text-center"><StatusBadge status={stall.saturday} /></td>
-                    <td className="p-5 text-center"><StatusBadge status={stall.sunday} /></td>
-                    <td className="p-5 text-right pr-6 space-x-2 whitespace-nowrap">
-                      <button onClick={() => openEditModal(stall)} className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-blue-400 hover:text-blue-600 text-gray-600 dark:text-gray-300 font-bold text-xs rounded-xl shadow-sm transition-all active:scale-95">✏️ แก้ไข</button>
-                      <button onClick={() => setDeleteConfirm(stall._id)} className="px-4 py-2 bg-red-50 border border-red-100 dark:border-red-900/50 hover:bg-red-500 hover:text-white dark:bg-red-900/20 text-red-600 dark:text-red-400 font-bold text-xs rounded-xl shadow-sm transition-all active:scale-95">🗑️ ลบ</button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {stalls.length > 0 && (
-          <div className="flex justify-between items-center p-6 border-t border-gray-100 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-800/10">
-            <p className="text-sm font-bold text-gray-500 dark:text-gray-400">หน้า {currentPage} จาก {totalPages}</p>
-            <div className="flex gap-2">
-              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 rounded-xl font-bold text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 disabled:opacity-40 shadow-sm">ก่อนหน้า</button>
-              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 rounded-xl font-bold text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 disabled:opacity-40 shadow-sm">ถัดไป</button>
-            </div>
-          </div>
-        )}
+      {/* 2. ปุ่มล้างกระดานฉุกเฉิน (Manual Reset) */}
+      <div className="bg-red-50 dark:bg-red-900/10 rounded-[2rem] border border-red-100 dark:border-red-900/50 p-8">
+        <h2 className="text-xl font-bold text-red-600 dark:text-red-500 mb-2">🚨 ล้างกระดานแมนนวล (ฉุกเฉิน)</h2>
+        <p className="text-red-800/70 dark:text-red-300/70 text-sm mb-6 max-w-2xl font-medium">
+          ระบบมีการตั้งเวลาล้างกระดานอัตโนมัติอยู่แล้ว แต่ถ้าคุณต้องการ <b>เคลียร์พื้นที่ให้ว่างทันทีเดี๋ยวนี้</b> สามารถกดปุ่มด้านล่างได้เลย
+        </p>
+        <button onClick={() => setShowResetModal(true)} className="px-8 py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-500/30 transition-all">
+          ⚠️ ล้างพื้นที่ทั้งหมดให้ว่างทันที
+        </button>
       </div>
 
-      {/* Popups (เหมือนเดิม) */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-900 p-8 rounded-3xl shadow-2xl max-w-sm w-full animate-in zoom-in-95 border border-gray-100 dark:border-gray-800">
-             <h2 className="text-2xl font-black mb-6 dark:text-white text-gray-800">{editingStall ? "แก้ไข" : "สร้างใหม่"}</h2>
-             <form onSubmit={handleSave} className="space-y-4">
-                <input type="text" value={formData.stallId} onChange={(e) => setFormData({...formData, stallId: e.target.value.toUpperCase()})} placeholder="รหัสล็อก (เช่น A01)" className="w-full p-3 border-2 rounded-xl outline-none focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white uppercase font-bold" required />
-                <select value={formData.zone} onChange={(e) => setFormData({...formData, zone: e.target.value})} className="w-full p-3 border-2 rounded-xl outline-none focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold cursor-pointer">
-                  <option value="โซนอาหาร">โซนอาหาร</option>
-                  <option value="โซนเสื้อผ้า">โซนเสื้อผ้า</option>
-                  <option value="โซนทั่วไป">โซนทั่วไป</option>
-                </select>
-                <input type="number" value={formData.price} onChange={(e) => setFormData({...formData, price: Number(e.target.value)})} placeholder="ราคา" className="w-full p-3 border-2 rounded-xl outline-none focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white font-bold" min="1" required />
-                <div className="flex gap-2 pt-4">
-                  <button type="button" onClick={() => setModalOpen(false)} className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold">ยกเลิก</button>
-                  <button type="submit" disabled={isProcessing} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold disabled:opacity-50">บันทึก</button>
-                </div>
-             </form>
+      {/* Popup ยืนยันตั้งเวลา */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-gray-900 p-8 rounded-3xl shadow-2xl max-w-sm w-full animate-in zoom-in-95">
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">🛡️</div>
+            <h3 className="text-2xl font-black text-center mb-2 dark:text-white">ยืนยันสิทธิ์ผู้ดูแล</h3>
+            <p className="text-center text-gray-500 text-sm mb-6">พิมพ์ <span className="font-bold text-blue-600">ยืนยัน</span> เพื่อตั้งเวลา</p>
+            <input type="text" value={authText} onChange={(e) => setAuthText(e.target.value)} className="w-full p-3.5 mb-6 border-2 border-gray-200 rounded-xl text-center font-bold outline-none focus:border-blue-500 dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="พิมพ์ที่นี่" />
+            <div className="flex gap-3">
+              <button onClick={() => setShowAuthModal(false)} className="flex-1 py-3.5 bg-gray-100 rounded-xl font-bold dark:bg-gray-800 dark:text-white">ยกเลิก</button>
+              <button onClick={handleSaveTimer} disabled={isProcessing || authText !== "ยืนยัน"} className="flex-1 py-3.5 bg-blue-600 text-white font-bold rounded-xl disabled:opacity-50">บันทึก</button>
+            </div>
           </div>
         </div>
       )}
 
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-gray-900 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center border border-gray-100 dark:border-gray-800">
-             <div className="text-5xl mb-4">🗑️</div>
-             <h3 className="text-xl font-bold mb-6 dark:text-white">ยืนยันการลบ?</h3>
-             <div className="flex gap-2">
-               <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold">ยกเลิก</button>
-               <button onClick={handleDelete} disabled={isProcessing} className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold disabled:opacity-50">ลบเลย</button>
-             </div>
+      {/* Popup ยืนยันล้างกระดาน */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-red-950/80 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-gray-900 p-8 rounded-3xl shadow-2xl max-w-sm w-full border-2 border-red-500 animate-in zoom-in-95">
+            <div className="text-5xl text-center mb-4">💣</div>
+            <h3 className="text-2xl font-black text-center mb-2 text-red-600">ยืนยันการล้างกระดาน?</h3>
+            <p className="text-center text-gray-600 text-sm mb-6 dark:text-gray-400">พื้นที่ทั้งหมดจะว่างทันที พิมพ์ <span className="font-bold text-red-600">ล้างกระดาน</span> เพื่อดำเนินการ</p>
+            <input type="text" value={resetAuthText} onChange={(e) => setResetAuthText(e.target.value)} className="w-full p-3.5 mb-6 border-2 border-red-200 rounded-xl text-center font-bold outline-none focus:border-red-500 dark:bg-gray-800 dark:border-red-800 dark:text-white" placeholder="พิมพ์ที่นี่" />
+            <div className="flex gap-3">
+              <button onClick={() => setShowResetModal(false)} className="flex-1 py-3.5 bg-gray-100 rounded-xl font-bold dark:bg-gray-800 dark:text-white">ยกเลิก</button>
+              <button onClick={handleManualReset} disabled={isProcessing || resetAuthText !== "ล้างกระดาน"} className="flex-1 py-3.5 bg-red-600 text-white font-bold rounded-xl disabled:opacity-50">ล้างทันที</button>
+            </div>
           </div>
         </div>
       )}

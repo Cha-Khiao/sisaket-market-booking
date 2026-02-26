@@ -31,9 +31,12 @@ export default function AdminBookingsPage() {
 
   const fetchBookings = async () => {
     try {
-      const res = await fetch("/api/admin/bookings");
+      // ⚡ จุดสำคัญ: เติม ?type=current เข้าไป เพื่อบังคับดึงเฉพาะบิลของรอบปัจจุบัน
+      const res = await fetch("/api/admin/bookings?type=current");
       const result = await res.json();
-      if (result.success) setBookings(result.data);
+      if (result.success) {
+        setBookings(result.data);
+      }
     } catch (error) {
       toast.error("ดึงข้อมูลล้มเหลว");
     } finally {
@@ -105,10 +108,12 @@ export default function AdminBookingsPage() {
                       <p className="font-bold text-gray-800 dark:text-white">{b.customerName}</p>
                       <p className="text-xs text-blue-600 dark:text-blue-400">📞 {b.customerPhone}</p>
                     </td>
-                    <td className="p-4">
-                      <p className="font-bold text-gray-800 dark:text-white">ล็อก {b.stallId} <span className="text-gray-400 font-normal ml-1">(฿{b.price})</span></p>
-                      <p className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 inline-block px-2 py-0.5 rounded-md mt-1">
-                        {(b.bookingDays || []).map(d => d === 'saturday' ? 'ส.' : 'อา.').join(', ') || 'ข้อมูลเก่า'}
+                    <td className="p-5">
+                      <p className="font-black text-gray-800 dark:text-white text-lg">
+                        ล็อก {b.stallId} <span className="text-gray-400 font-medium text-sm ml-1">(฿{b.price})</span>
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-1.5 bg-blue-50 dark:bg-blue-900/30 inline-block px-2.5 py-1 rounded-md border border-blue-100 dark:border-blue-800">
+                        รอบจอง: {b.bookingDays && b.bookingDays.length > 0 ? b.bookingDays.map(d => d === 'saturday' ? 'เสาร์' : 'อาทิตย์').join(' และ ') : 'ไม่ระบุ'}
                       </p>
                     </td>
                     <td className="p-4 text-center">

@@ -60,16 +60,19 @@ export default function AdminHistoryPage() {
   };
 
   // ⚡ ประมวลผลการกรองข้อมูล (ค้นหาคำ + เลือกเดือน)
+  // ⚡ ประมวลผลการกรองข้อมูล (ดัก Error ข้อมูลเก่าที่ไม่มีชื่อด้วย || "")
   const filteredBookings = bookings.filter(b => {
     const d = new Date(b.createdAt);
     const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     
     const matchMonth = selectedMonth === "all" || monthKey === selectedMonth;
+    
+    // ใส่ (b... || "") เพื่อป้องกัน Error กรณีข้อมูลในฐานข้อมูลแหว่ง/เก่า
     const matchSearch = 
-      b.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      b.customerPhone.includes(searchTerm) || 
-      b.stallId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      b.bookingId.toLowerCase().includes(searchTerm.toLowerCase());
+      (b.customerName || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (b.customerPhone || "").includes(searchTerm) || 
+      (b.stallId || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (b.bookingId || "").toLowerCase().includes(searchTerm.toLowerCase());
 
     return matchMonth && matchSearch;
   });
@@ -145,7 +148,9 @@ export default function AdminHistoryPage() {
                     </td>
                     <td className="p-5">
                       <p className="font-black text-gray-800 dark:text-white text-lg">ล็อก {b.stallId}</p>
-                      <p className="text-xs text-gray-500">รอบ: {(b.bookingDays || []).map(d => d === 'saturday' ? 'ส.' : 'อา.').join(', ')}</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-1.5 bg-blue-50 dark:bg-blue-900/30 inline-block px-2.5 py-1 rounded-md border border-blue-100 dark:border-blue-800">
+                        รอบจอง: {b.bookingDays && b.bookingDays.length > 0 ? b.bookingDays.map(d => d === 'saturday' ? 'วันเสาร์' : 'วันอาทิตย์').join(', ') : 'ไม่ระบุ'}
+                      </p>
                     </td>
                     <td className="p-5 font-mono font-bold text-gray-600 dark:text-gray-300">฿{b.price}</td>
                     <td className="p-5 text-center pr-6">
