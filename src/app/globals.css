@@ -1,26 +1,34 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* เปิดใช้งาน Dark Mode แบบใช้ Class (สำหรับ next-themes) */
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* ใส่ตั้งค่าอื่นๆ ของธีม (ถ้ามี) */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* --- เพิ่มชุดคำสั่ง CSS สำหรับสร้างเมือง 3D --- */
+@layer utilities {
+  .preserve-3d {
+    transform-style: preserve-3d;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  .isometric-map {
+    /* ปรับองศาให้เป็นมุมมองด้านบนเอียงๆ แบบ Isometric */
+    transform: rotateX(60deg) rotateZ(-45deg);
+  }
+  .isometric-stall {
+    /* ใส่ Animation ความสมูทเวลานูนขึ้น */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+  }
+  .isometric-stall:hover {
+    /* ทำให้บล็อกนูนเด้งขึ้นมาตามแนวแกน Z และเกิดเงา 3 มิติ */
+    transform: translateZ(30px);
+    box-shadow: -20px 20px 30px rgba(0, 0, 0, 0.4);
+    z-index: 50;
+  }
+  .tooltip-inverse {
+    /* หมุนป้ายรายละเอียดกลับให้ตั้งตรง หันหน้าเข้าหาคนดู */
+    transform: rotateZ(45deg) rotateX(-60deg) translateY(-20px);
+    transform-origin: bottom center;
+  }
 }
