@@ -5,13 +5,10 @@ const bookingSchema = new Schema({
   stallId: { type: String, required: true },
   userId: { type: String, required: true },
   price: { type: Number, required: true },
-  
-  // ⚡ เพิ่มบรรทัดนี้ เพื่อให้ฐานข้อมูลยอมรับข้อมูลวันเสาร์-อาทิตย์
   bookingDays: { type: [String], default: [] }, 
-  
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   slipImage: { type: String, default: '' },
   ocrPassed: { type: Boolean, default: false }
-}, { timestamps: true });
+}, { timestamps: true, strict: false }); // ⚡ จุดสำคัญ: strict: false บังคับให้รับข้อมูลใหม่เสมอ
 
 export default models.Booking || mongoose.model('Booking', bookingSchema);
