@@ -23,7 +23,7 @@ export default function AdminBookingsPage() {
   const [selectedSlip, setSelectedSlip] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ bookingId: string, stallId: string, action: "approve" | "reset" } | null>(null);
   
-  // ⚡ State สำหรับระบบลบแบบเข้มงวด (Strict Delete)
+  
   const [strictDeleteModal, setStrictDeleteModal] = useState<{ bookingId: string, stallId: string } | null>(null);
   const [confirmText, setConfirmText] = useState("");
   
@@ -31,7 +31,7 @@ export default function AdminBookingsPage() {
 
   const fetchBookings = async () => {
     try {
-      // ⚡ จุดสำคัญ: เติม ?type=current เข้าไป เพื่อบังคับดึงเฉพาะบิลของรอบปัจจุบัน
+      
       const res = await fetch("/api/admin/bookings?type=current");
       const result = await res.json();
       if (result.success) {
