@@ -1,14 +1,11 @@
 "use client";
 
 import { useState } from "react";
-// ⚡ เพิ่ม getSession เข้ามา
 import { signIn, getSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,25 +14,32 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    const result = await signIn("credentials", {
-      redirect: false,
-      email,
-      password,
-    });
+    try {
+      const result = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
 
-    if (result?.error) {
-      toast.error(result.error);
-      setLoading(false);
-    } else {
-      toast.success("เข้าสู่ระบบสำเร็จ!");
-      
-      // ⚡ เช็ก Session เพื่อแยกว่าใครคือ Admin หรือ User
-      const session = await getSession();
-      if ((session?.user as any)?.role === "admin") {
-        router.push("/admin"); // ถ้าเป็นแอดมิน ไปหน้า Dashboard
+      if (result?.error) {
+        toast.error(result.error);
+        setLoading(false); // ⚡ ปลดล็อกปุ่มทันทีถ้าพาสเวิร์ดผิด
       } else {
-        router.push("/booking"); // ถ้าเป็นผู้ค้า ไปหน้าจองล็อก
+        toast.success("เข้าสู่ระบบสำเร็จ! กำลังพาไปหน้าหลัก...");
+        
+        // ดึง Session ล่าสุดเพื่อเช็กว่าเป็น Admin หรือ ลูกค้า
+        const session = await getSession();
+        
+        // ⚡ ใช้ window.location.href เพื่อบังคับเปลี่ยนหน้าทันที ไม่มีค้าง!
+        if ((session?.user as any)?.role === "admin") {
+          window.location.href = "/admin";
+        } else {
+          window.location.href = "/booking";
+        }
       }
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+      setLoading(false); // ⚡ ปลดล็อกปุ่มถ้าเน็ตหลุดหรือเซิร์ฟเวอร์พัง
     }
   };
 
@@ -62,7 +66,7 @@ export default function LoginPage() {
             />
           </div>
 
-          <button type="submit" disabled={loading} className="w-full py-3 mt-6 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-md transition-colors disabled:bg-green-400">
+          <button type="submit" disabled={loading} className="w-full py-3 mt-6 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-md transition-colors disabled:bg-green-400 disabled:cursor-wait">
             {loading ? "กำลังตรวจสอบ..." : "ล็อกอินเข้าสู่ระบบ"}
           </button>
         </form>
