@@ -1,65 +1,66 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import Link from "next/link";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+
+export default function LandingPage() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) return null;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-colors duration-300 relative overflow-hidden">
+      
+      {/* ปุ่มสลับโหมดมืด/สว่างมุมขวาบน */}
+      <div className="absolute top-6 right-6 z-20">
+        <button 
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")} 
+          className="p-3 bg-white dark:bg-gray-800 rounded-full shadow-md hover:scale-110 transition-transform"
+        >
+          {theme === "dark" ? "☀️" : "🌙"}
+        </button>
+      </div>
+
+      {/* วงกลมตกแต่งฉากหลัง */}
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-300/30 dark:bg-blue-600/20 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[30rem] h-[30rem] bg-green-300/30 dark:bg-green-600/20 rounded-full blur-3xl"></div>
+
+      {/* Content หลัก */}
+      <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
+        <div className="mb-6 inline-block">
+          <span className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 px-4 py-1.5 rounded-full text-sm font-bold tracking-wider shadow-sm">
+            ✨ เปิดจองพื้นที่แล้ววันนี้
+          </span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        
+        <h1 className="text-5xl md:text-7xl font-extrabold text-gray-900 dark:text-white mb-6 tracking-tight drop-shadow-sm">
+          ตลาดนัดคนเดิน <br />
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-green-500 dark:from-blue-400 dark:to-green-400">
+            จังหวัดศรีสะเกษ
+          </span>
+        </h1>
+        
+        <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed">
+          ยินดีต้อนรับพ่อค้าแม่ค้าทุกท่านเข้าสู่ระบบจองล็อกออนไลน์ 
+          ตรวจสอบผังเมือง เลือกล็อกที่ถูกใจ และชำระเงินอัตโนมัติได้ตลอด 24 ชั่วโมง 
+          สะดวกรวดเร็ว ไม่ต้องรอคิว
+        </p>
+        
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <Link href="/booking">
+            <button className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold rounded-2xl shadow-xl shadow-blue-500/30 hover:-translate-y-1 transition-all">
+              🚀 เข้าสู่ระบบจองล็อก
+            </button>
+          </Link>
+          <button className="px-8 py-4 bg-white dark:bg-gray-800 text-gray-800 dark:text-white text-lg font-bold rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            📖 วิธีการจอง
+          </button>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
