@@ -59,15 +59,15 @@ export default function AdminHistoryPage() {
     return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' น.';
   };
 
-  // ⚡ ประมวลผลการกรองข้อมูล (ค้นหาคำ + เลือกเดือน)
-  // ⚡ ประมวลผลการกรองข้อมูล (ดัก Error ข้อมูลเก่าที่ไม่มีชื่อด้วย || "")
+  
+  
   const filteredBookings = bookings.filter(b => {
     const d = new Date(b.createdAt);
     const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     
     const matchMonth = selectedMonth === "all" || monthKey === selectedMonth;
     
-    // ใส่ (b... || "") เพื่อป้องกัน Error กรณีข้อมูลในฐานข้อมูลแหว่ง/เก่า
+    
     const matchSearch = 
       (b.customerName || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
       (b.customerPhone || "").includes(searchTerm) || 
