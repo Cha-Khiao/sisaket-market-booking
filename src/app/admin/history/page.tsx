@@ -19,11 +19,11 @@ export default function AdminHistoryPage() {
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // States สำหรับการค้นหาและฟิลเตอร์
+ 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("all");
   
-  // Pagination
+ 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
 
@@ -42,7 +42,7 @@ export default function AdminHistoryPage() {
     fetchHistory();
   }, []);
 
-  // ดึงรายการเดือนที่มีการจองมาแสดงใน Dropdown
+  
   const availableMonths = Array.from(new Set(bookings.map(b => {
     const d = new Date(b.createdAt);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -59,15 +59,15 @@ export default function AdminHistoryPage() {
     return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' น.';
   };
 
-  // ⚡ ประมวลผลการกรองข้อมูล (ค้นหาคำ + เลือกเดือน)
-  // ⚡ ประมวลผลการกรองข้อมูล (ดัก Error ข้อมูลเก่าที่ไม่มีชื่อด้วย || "")
+  
+  
   const filteredBookings = bookings.filter(b => {
     const d = new Date(b.createdAt);
     const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     
     const matchMonth = selectedMonth === "all" || monthKey === selectedMonth;
     
-    // ใส่ (b... || "") เพื่อป้องกัน Error กรณีข้อมูลในฐานข้อมูลแหว่ง/เก่า
+    
     const matchSearch = 
       (b.customerName || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
       (b.customerPhone || "").includes(searchTerm) || 
