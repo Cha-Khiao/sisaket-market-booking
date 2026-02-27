@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import connectToDatabase from '@/lib/mongodb';
-import Booking from '@/models/Booking';
 import Stall from '@/models/Stall';
 
 export const dynamic = 'force-dynamic';
@@ -8,14 +8,18 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   try {
     await connectToDatabase();
-    
     const { stallId, userId, price, slipImage, ocrPassed, days } = await req.json();
-
-    let booking = await Booking.findOne({ stallId, userId, status: "pending" }).sort({ createdAt: -1 });
+    
+    // ⚡ ค้นหาด้วย Native DB
+    const db = mongoose.connection.db;
+    const booking = await db?.collection('bookings').findOne(
+      { stallId, userId, status: "pending" }, 
+      { sort: { createdAt: -1 } }
+    );
 
     if (booking) {
-      // ⚡ อัปเดตข้อมูลด้วย Native MongoDB โดยตรง ข้ามระบบกรองของ Mongoose
-      await Booking.collection.updateOne(
+      // ⚡ อัปเดตด้วย Native DB ตรงๆ
+      await db?.collection('bookings').updateOne(
         { _id: booking._id },
         { 
           $set: { 
@@ -23,7 +27,8 @@ export async function POST(req: Request) {
             ocrPassed: ocrPassed,
             status: ocrPassed ? "approved" : "pending",
             bookingDays: days && days.length > 0 ? days : booking.bookingDays
-          } 
+          },
+          $currentDate: { updatedAt: true }
         }
       );
 

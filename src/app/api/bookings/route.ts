@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose"; // ⚡ เรียกใช้ mongoose โดยตรง
 import connectToDatabase from "@/lib/mongodb";
 import Stall from "@/models/Stall";
-import Booking from "@/models/Booking";
 
 export const dynamic = 'force-dynamic';
 
@@ -25,27 +25,25 @@ export async function POST(req: Request) {
     days.forEach((day: string) => { stallUpdateFields[day] = "pending"; });
     await Stall.findOneAndUpdate({ stallId }, { $set: stallUpdateFields });
 
-    const newBooking = await Booking.create({
+    // ⚡ ทะลวงกำแพง: ใช้ Native MongoDB บันทึกข้อมูลลงตารางตรงๆ 
+    const db = mongoose.connection.db;
+    await db?.collection('bookings').insertOne({
       bookingId,
       stallId,
       userId,
       price: expectedPrice,
-      bookingDays: days,
+      bookingDays: days, // 👈 ยัดข้อมูลรอบวันลงไปตรงๆ แบบนี้เซฟติดแน่นอน!
       status: "pending",
       ocrPassed: false,
-      slipImage: ""
+      slipImage: "",
+      createdAt: new Date(),
+      updatedAt: new Date()
     });
 
-    // ⚡ บังคับยัดข้อมูลลงตารางโดยตรงด้วย Native MongoDB ทับอีก 1 รอบ! (กันพลาด 100%)
-    await Booking.collection.updateOne(
-      { _id: newBooking._id },
-      { $set: { bookingDays: days } }
-    );
-
-    return NextResponse.json({ success: true, message: "ล็อกพื้นที่สำเร็จ", data: newBooking });
+    return NextResponse.json({ success: true, message: "ล็อกพื้นที่สำเร็จ" });
 
   } catch (error: any) {
-    console.error("Booking Error:", error);
+    console.error("Booking API Error:", error);
     return NextResponse.json({ success: false, message: "เกิดข้อผิดพลาด" }, { status: 500 });
   }
 }
