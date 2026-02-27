@@ -14,7 +14,7 @@ export default function AdminSettingsPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authText, setAuthText] = useState("");
   
-  // State สำหรับปุ่มล้างกระดานฉุกเฉิน
+  
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetAuthText, setResetAuthText] = useState("");
 
