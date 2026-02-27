@@ -19,11 +19,11 @@ export default function AdminHistoryPage() {
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // States สำหรับการค้นหาและฟิลเตอร์
+ 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("all");
   
-  // Pagination
+ 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
 
@@ -42,7 +42,7 @@ export default function AdminHistoryPage() {
     fetchHistory();
   }, []);
 
-  // ดึงรายการเดือนที่มีการจองมาแสดงใน Dropdown
+  
   const availableMonths = Array.from(new Set(bookings.map(b => {
     const d = new Date(b.createdAt);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
